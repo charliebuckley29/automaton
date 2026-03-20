@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{business_name}} — Harper Business Intelligence Report</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600&family=JetBrains+Mono&display=swap');
+
+    :root {
+      --midnight: #0D0D0D;
+      --chalk: #F5F2EC;
+      --gold: #C9A84C;
+      --slate: #4A5568;
+      --green: #2D6A4F;
+      --amber: #D4A017;
+      --red: #C0392B;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--chalk);
+      color: var(--midnight);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .page { max-width: 800px; margin: 0 auto; padding: 48px; }
+
+    /* Cover page */
+    .cover {
+      background: var(--midnight);
+      color: var(--chalk);
+      padding: 80px 48px;
+      text-align: center;
+      page-break-after: always;
+    }
+    .cover h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 36px;
+      margin-bottom: 16px;
+    }
+    .cover .subtitle {
+      font-size: 18px;
+      color: var(--gold);
+      margin-bottom: 32px;
+    }
+    .cover .date { color: var(--slate); font-size: 13px; }
+    .cover .logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 14px;
+      letter-spacing: 0.1em;
+      color: var(--gold);
+      margin-top: 48px;
+    }
+
+    /* Headline finding */
+    .headline {
+      background: var(--midnight);
+      color: var(--chalk);
+      padding: 32px;
+      border-radius: 8px;
+      margin: 32px 0;
+      border-left: 4px solid var(--gold);
+    }
+    .headline h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 22px;
+      margin-bottom: 8px;
+      color: var(--gold);
+    }
+    .headline p { font-size: 16px; line-height: 1.7; }
+
+    /* Scores */
+    .scores-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin: 32px 0;
+    }
+    .score-card {
+      text-align: center;
+      padding: 24px 16px;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #E5E0D8;
+    }
+    .score-card.overall {
+      grid-column: 1 / -1;
+      background: var(--midnight);
+      color: var(--chalk);
+    }
+    .score-number {
+      font-family: 'Playfair Display', serif;
+      font-size: 48px;
+      font-weight: 700;
+    }
+    .score-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 500;
+      color: var(--slate);
+      margin-top: 4px;
+    }
+    .score-card.overall .score-label { color: var(--gold); }
+
+    /* Sections */
+    h2 {
+      font-family: 'Inter', sans-serif;
+      font-size: 22px;
+      font-weight: 600;
+      margin: 40px 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--gold);
+    }
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 24px 0 8px;
+    }
+    p { margin-bottom: 12px; }
+
+    /* Observations */
+    .observation {
+      background: white;
+      border: 1px solid #E5E0D8;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 12px 0;
+    }
+    .observation .label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 500;
+      color: var(--gold);
+      margin-bottom: 8px;
+    }
+    .observation blockquote {
+      border-left: 3px solid var(--gold);
+      padding-left: 12px;
+      color: var(--slate);
+      font-style: italic;
+      margin: 8px 0;
+    }
+
+    /* Opportunities */
+    .opportunity {
+      background: white;
+      border: 1px solid #E5E0D8;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 12px 0;
+    }
+    .opportunity .priority {
+      display: inline-block;
+      background: var(--gold);
+      color: var(--midnight);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .opportunity h3 { margin-top: 8px; }
+    .opportunity .meta {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--slate);
+    }
+    .opportunity .meta span {
+      background: var(--chalk);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    /* Tool recommendations */
+    .tool-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: white;
+      border: 1px solid #E5E0D8;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 8px 0;
+    }
+    .tool-card .tier {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .tier.essential { background: var(--green); color: white; }
+    .tier.recommended { background: var(--amber); color: var(--midnight); }
+    .tier.avoid { background: var(--red); color: white; }
+
+    /* Quick wins */
+    .quick-wins {
+      background: var(--midnight);
+      color: var(--chalk);
+      border-radius: 8px;
+      padding: 24px;
+      margin: 24px 0;
+    }
+    .quick-wins h3 { color: var(--gold); margin-top: 0; }
+    .quick-wins ul { padding-left: 20px; }
+    .quick-wins li { margin-bottom: 8px; }
+
+    /* Honest assessment */
+    .honest-assessment {
+      border: 2px solid var(--gold);
+      border-radius: 8px;
+      padding: 24px;
+      margin: 24px 0;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    /* CTA */
+    .cta-section {
+      background: var(--midnight);
+      color: var(--chalk);
+      border-radius: 8px;
+      padding: 32px;
+      text-align: center;
+      margin: 40px 0;
+    }
+    .cta-section h2 {
+      border: none;
+      color: var(--gold);
+      text-align: center;
+    }
+    .cta-button {
+      display: inline-block;
+      background: var(--gold);
+      color: var(--midnight);
+      padding: 12px 32px;
+      border-radius: 6px;
+      font-weight: 600;
+      text-decoration: none;
+      margin-top: 16px;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      color: var(--slate);
+      font-size: 12px;
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid #E5E0D8;
+    }
+    .footer .brand {
+      font-family: 'Playfair Display', serif;
+      color: var(--gold);
+      font-size: 14px;
+    }
+
+    /* Print */
+    @media print {
+      .page { padding: 24px; }
+      .cover { padding: 48px 24px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Cover Page -->
+  <div class="cover">
+    <div class="logo">HARPER AUTOMATION</div>
+    <h1>Business Intelligence Report</h1>
+    <div class="subtitle">{{business_name}}</div>
+    <div class="date">Prepared {{report_date}}</div>
+  </div>
+
+  <div class="page">
+    <!-- Headline Finding -->
+    <div class="headline">
+      <h2>The headline</h2>
+      <p>{{headline_finding}}</p>
+    </div>
+
+    <!-- Business Summary -->
+    <p>{{business_summary}}</p>
+
+    <!-- Scores -->
+    <h2>Your scores</h2>
+    <div class="scores-grid">
+      <div class="score-card overall">
+        <div class="score-number" style="color: {{score_overall_colour}}">{{score_overall}}</div>
+        <div class="score-label">Overall Score</div>
+      </div>
+      {{#each scores}}
+      <div class="score-card">
+        <div class="score-number" style="color: {{this.colour}}">{{this.score}}</div>
+        <div class="score-label">{{this.label}}</div>
+      </div>
+      {{/each}}
+    </div>
+
+    {{#each score_narratives}}
+    <h3>{{this.label}}: {{this.score}}/100</h3>
+    <p>{{this.narrative}}</p>
+    {{/each}}
+
+    <!-- Key Observations -->
+    <h2>What we noticed</h2>
+    {{#each key_observations}}
+    <div class="observation">
+      <div class="label">Observation</div>
+      <p><strong>{{this.observation}}</strong></p>
+      <blockquote>{{this.evidence}}</blockquote>
+      <p>{{this.significance}}</p>
+    </div>
+    {{/each}}
+
+    <!-- Website Analysis -->
+    <h2>Your website</h2>
+    <p><strong>{{website_analysis.verdict}}</strong></p>
+    {{#if website_analysis.what_works}}
+    <h3>What works</h3>
+    <ul>
+      {{#each website_analysis.what_works}}<li>{{this}}</li>{{/each}}
+    </ul>
+    {{/if}}
+    {{#if website_analysis.what_to_fix}}
+    <h3>What to fix</h3>
+    {{#each website_analysis.what_to_fix}}
+    <div class="observation">
+      <p><strong>{{this.issue}}</strong></p>
+      <p>Impact: {{this.impact}}</p>
+      <p>Fix: {{this.fix}}</p>
+    </div>
+    {{/each}}
+    {{/if}}
+
+    <!-- Research vs Reality -->
+    {{#if research_vs_said}}
+    <h2>What research revealed vs. what you said</h2>
+    {{#each research_vs_said}}
+    <div class="observation">
+      <p><strong>{{this.finding}}</strong></p>
+      <p>{{this.significance}}</p>
+    </div>
+    {{/each}}
+    {{/if}}
+
+    <!-- Opportunities -->
+    <h2>Your opportunities</h2>
+    {{#each opportunities}}
+    <div class="opportunity">
+      <span class="priority">Priority {{this.priority}}</span>
+      <h3>{{this.title}}</h3>
+      <p>{{this.description}}</p>
+      <p><strong>Why you:</strong> {{this.specific_to_this_business}}</p>
+      <p><strong>What it looks like:</strong> {{this.what_it_looks_like}}</p>
+      <div class="meta">
+        <span>Impact: {{this.estimated_impact}}</span>
+        <span>Effort: {{this.effort}}</span>
+        <span>Timeframe: {{this.timeframe}}</span>
+      </div>
+    </div>
+    {{/each}}
+
+    <!-- Tool Recommendations -->
+    <h2>Recommended tools</h2>
+    <p>{{tool_recommendations.current_stack_assessment}}</p>
+    {{#each tool_recommendations.essential}}
+    <div class="tool-card">
+      <div>
+        <strong>{{this.tool}}</strong>
+        <div style="font-size: 13px; color: var(--slate);">{{this.why_for_this_business}}</div>
+      </div>
+      <div>
+        <span class="tier essential">Essential</span>
+        <div style="font-size: 12px; color: var(--slate); margin-top: 4px;">{{this.rough_cost}}</div>
+      </div>
+    </div>
+    {{/each}}
+    {{#each tool_recommendations.recommended}}
+    <div class="tool-card">
+      <div>
+        <strong>{{this.tool}}</strong>
+        <div style="font-size: 13px; color: var(--slate);">{{this.why_for_this_business}}</div>
+      </div>
+      <div>
+        <span class="tier recommended">Recommended</span>
+        <div style="font-size: 12px; color: var(--slate); margin-top: 4px;">{{this.rough_cost}}</div>
+      </div>
+    </div>
+    {{/each}}
+
+    <!-- Quick Wins -->
+    <div class="quick-wins">
+      <h3>This week — no budget needed</h3>
+      <ul>
+        {{#each quick_wins}}<li>{{this}}</li>{{/each}}
+      </ul>
+    </div>
+
+    <!-- Honest Assessment -->
+    <div class="honest-assessment">
+      <h3>The honest assessment</h3>
+      <p>{{honest_assessment}}</p>
+    </div>
+
+    <!-- Next Step -->
+    <div class="cta-section">
+      <h2>Your recommended next step</h2>
+      <p>{{recommended_next_step.reason}}</p>
+      <p style="color: var(--slate); font-size: 13px;">Expected outcome: {{recommended_next_step.expected_outcome}}</p>
+      <a href="https://harper-automation.com/contact" class="cta-button">Book a discovery call</a>
+    </div>
+
+    <!-- Closing -->
+    <p style="font-style: italic; color: var(--slate);">{{closing_note}}</p>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="brand">HARPER AUTOMATION</div>
+      <p>AI-powered growth for businesses that want to work smarter.</p>
+      <p>harper-automation.com</p>
+    </div>
+  </div>
+</body>
+</html>
