@@ -6,6 +6,11 @@ import voiceRouter from "./routes/agent/voice.js";
 import researchRouter from "./routes/research/run.js";
 import reportsRouter from "./routes/reports/generate.js";
 import stripeWebhookRouter from "./routes/webhooks/stripe.js";
+import intelligenceRouter from "./routes/intelligence/update.js";
+import emailRouter from "./routes/email/trigger.js";
+import scorecardRouter from "./routes/scorecard/analyze.js";
+import offersRouter from "./routes/offers/index.js";
+import bulkRouter from "./routes/bulk/index.js";
 
 const app = express();
 
@@ -48,6 +53,11 @@ app.use("/agent/voice", voiceRouter);
 app.use("/research", researchRouter);
 app.use("/reports", reportsRouter);
 app.use("/webhooks/stripe", stripeWebhookRouter);
+app.use("/intelligence", intelligenceRouter);
+app.use("/email", emailRouter);
+app.use("/scorecard", scorecardRouter);
+app.use("/offers", offersRouter);
+app.use("/bulk", bulkRouter);
 
 // ---------------------------------------------------------------------------
 // Global error handler

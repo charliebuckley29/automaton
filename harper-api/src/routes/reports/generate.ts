@@ -3,6 +3,9 @@ import { supabase } from "../../services/supabase.js";
 import { generateReportAnalysis } from "../../services/claude.js";
 import { generatePdf } from "../../services/puppeteer.js";
 import { sendReportEmail } from "../../services/resend.js";
+import { updateBusinessIntelligence } from "../../lib/intelligence.js";
+import { triggerReportUpsellSequence } from "../../services/loops.js";
+import { syncContact, syncReport } from "../../services/airtable.js";
 
 const router = Router();
 
@@ -265,7 +268,62 @@ router.post("/generate", async (req: Request, res: Response) => {
     }
 
     // ----------------------------------------------------------------
-    // 10. Respond
+    // 10. Update business intelligence (async, non-blocking)
+    // ----------------------------------------------------------------
+
+    const userId = session.user_id;
+    if (userId && session.business_id) {
+      updateBusinessIntelligence({
+        businessId: session.business_id,
+        userId,
+        interactionType: "report_session",
+        interactionData: {
+          report_type: session.report_type ?? "business_intelligence",
+          analysis_summary: analysis.executive_summary,
+          scorecard: analysis.scorecard,
+          recommendations: analysis.recommendations?.map((r) => r.title),
+          quick_wins: analysis.quick_wins,
+        },
+      }).catch((err) =>
+        console.error("[reports/generate] Intelligence update failed:", err),
+      );
+    }
+
+    // ----------------------------------------------------------------
+    // 11. Trigger Loops upsell sequence (async, non-blocking)
+    // ----------------------------------------------------------------
+
+    if (customerEmail) {
+      triggerReportUpsellSequence({
+        email: customerEmail,
+        businessName: session.businesses?.name ?? "Unknown",
+        reportType: session.report_type ?? "business_intelligence",
+        headlineFinding: analysis.executive_summary?.slice(0, 200) ?? "",
+        topOpportunity: analysis.recommendations?.[0]?.title ?? "",
+        recommendedNextStep: "",
+        overallScore: analysis.scorecard?.overall ?? 0,
+      }).catch((err) =>
+        console.error("[reports/generate] Loops sequence failed:", err),
+      );
+    }
+
+    // ----------------------------------------------------------------
+    // 12. Sync to Airtable CRM (async, non-blocking)
+    // ----------------------------------------------------------------
+
+    if (customerEmail) {
+      syncReport({
+        contactEmail: customerEmail,
+        reportType: session.report_type ?? "business_intelligence",
+        overallScore: analysis.scorecard?.overall ?? 0,
+        reportDate: new Date().toISOString().split("T")[0],
+      }).catch((err) =>
+        console.error("[reports/generate] Airtable sync failed:", err),
+      );
+    }
+
+    // ----------------------------------------------------------------
+    // 13. Respond
     // ----------------------------------------------------------------
 
     res.json({

@@ -14,14 +14,42 @@ const features = [
   "Downloadable PDF report",
 ];
 
-async function getActiveOffer() {
+interface ActiveOffer {
+  id: string;
+  offer_code: string;
+  display_name: string;
+  offer_price_gbp: number;
+  offer_price_usd: number;
+  original_price_gbp: number;
+  original_price_usd: number;
+  stripe_promo_code: string;
+  ends_at: string | null;
+  max_redemptions: number | null;
+  current_redemptions: number;
+}
+
+async function getActiveOffer(): Promise<ActiveOffer | null> {
   try {
     const supabase = await createServerClient();
+    const now = new Date().toISOString();
+
     const { data } = await supabase
-      .from("offers")
+      .from("active_offers")
       .select("*")
       .eq("active", true)
-      .single();
+      .or(`ends_at.is.null,ends_at.gt.${now}`)
+      .or(`starts_at.is.null,starts_at.lte.${now}`)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!data) return null;
+
+    // Check redemption limits
+    if (data.max_redemptions && data.current_redemptions >= data.max_redemptions) {
+      return null;
+    }
+
     return data;
   } catch {
     return null;
@@ -130,16 +158,43 @@ export default async function ReportsPage() {
             <div className="flex flex-col items-center justify-center rounded-2xl border border-harper-gold/20 bg-chalk/[0.02] p-10">
               {offer && (
                 <p className="mb-2 rounded-full bg-harper-gold/10 px-4 py-1 text-xs font-semibold uppercase tracking-wider text-harper-gold">
-                  {offer.label ?? "Limited Offer"}
+                  {offer.display_name ?? "Limited Offer"}
                 </p>
               )}
-              <div className="mt-4 flex items-baseline gap-1">
-                <span className="font-display text-5xl font-bold text-chalk">
-                  {offer?.price_display ?? "£47"}
-                </span>
-                <span className="text-chalk/40">/report</span>
-              </div>
-              <p className="mt-1 text-sm text-chalk/50">~$57 USD</p>
+              {offer ? (
+                <>
+                  <div className="mt-4 flex items-baseline gap-2">
+                    <span className="text-2xl text-chalk/40 line-through">
+                      £{(offer.original_price_gbp / 100).toFixed(0)}
+                    </span>
+                    <span className="font-display text-5xl font-bold text-chalk">
+                      £{(offer.offer_price_gbp / 100).toFixed(0)}
+                    </span>
+                    <span className="text-chalk/40">/report</span>
+                  </div>
+                  <p className="mt-1 text-sm text-chalk/50">
+                    ~${(offer.offer_price_usd / 100).toFixed(0)} USD
+                  </p>
+                  {offer.ends_at && (
+                    <p className="mt-2 text-xs font-medium text-score-amber">
+                      Offer ends {new Date(offer.ends_at).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                      })}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="mt-4 flex items-baseline gap-1">
+                    <span className="font-display text-5xl font-bold text-chalk">
+                      £47
+                    </span>
+                    <span className="text-chalk/40">/report</span>
+                  </div>
+                  <p className="mt-1 text-sm text-chalk/50">~$57 USD</p>
+                </>
+              )}
               <p className="mt-6 text-center text-sm leading-relaxed text-chalk/60">
                 One-time payment. No subscriptions.
                 <br />
@@ -149,7 +204,7 @@ export default async function ReportsPage() {
                 href="/reports"
                 className="mt-8 w-full rounded-full bg-harper-gold px-8 py-4 text-center text-base font-semibold text-midnight transition-all hover:bg-harper-gold/90 hover:shadow-lg hover:shadow-harper-gold/20"
               >
-                Start my report
+                Start my report{offer ? ` — £${(offer.offer_price_gbp / 100).toFixed(0)}` : " — £47"}
               </Link>
               <p className="mt-4 text-xs text-chalk/30">
                 Secure payment via Stripe

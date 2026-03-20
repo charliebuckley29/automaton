@@ -2,6 +2,8 @@ import { Router, Request, Response } from "express";
 import Stripe from "stripe";
 import { supabase } from "../../services/supabase.js";
 import { stripeWebhookMiddleware } from "../../middleware/stripe.js";
+import { syncContact, syncDeal } from "../../services/airtable.js";
+import { upsertLoopsContact } from "../../services/loops.js";
 
 const router = Router();
 
@@ -20,6 +22,14 @@ router.post("/", ...stripeWebhookMiddleware, async (req: Request, res: Response)
 
       case "payment_intent.payment_failed":
         await handlePaymentFailed(event.data.object as Stripe.PaymentIntent);
+        break;
+
+      case "invoice.payment_succeeded":
+        await handleInvoiceSucceeded(event.data.object as Stripe.Invoice);
+        break;
+
+      case "customer.subscription.updated":
+        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
         break;
 
       case "customer.subscription.deleted":
@@ -61,6 +71,41 @@ async function handleCheckoutCompleted(
   if (existing) {
     console.log(
       `[stripe webhook] checkout.session.completed already processed: ${session.id}`,
+    );
+    return;
+  }
+
+  // ------------------------------------------------------------------
+  // Handle bulk credit pack purchases
+  // ------------------------------------------------------------------
+
+  if (sessionMetadata.type === "bulk_credit_pack") {
+    const packSize = parseInt(sessionMetadata.pack_size ?? "0", 10);
+    const userId = sessionMetadata.user_id;
+    const isWhiteLabel = sessionMetadata.white_label === "true";
+    const whiteLabel = sessionMetadata.white_label_config
+      ? JSON.parse(sessionMetadata.white_label_config)
+      : null;
+
+    const { error: packError } = await supabase
+      .from("bulk_credit_packs")
+      .insert({
+        user_id: userId,
+        pack_size: packSize,
+        credits_remaining: packSize,
+        price_paid: session.amount_total,
+        currency: (session.currency ?? "gbp").toUpperCase(),
+        stripe_payment_intent_id: session.payment_intent as string | null,
+        is_white_label: isWhiteLabel,
+        white_label_config: whiteLabel,
+      });
+
+    if (packError) {
+      throw new Error(`Failed to create bulk credit pack: ${packError.message}`);
+    }
+
+    console.log(
+      `[stripe webhook] Created bulk credit pack: ${packSize} credits for user ${userId}`,
     );
     return;
   }
@@ -129,6 +174,39 @@ async function handleCheckoutCompleted(
   console.log(
     `[stripe webhook] Created report session for checkout ${session.id} (business: ${businessId})`,
   );
+
+  // Sync to Airtable CRM (non-blocking)
+  if (customerEmail) {
+    syncContact({
+      email: customerEmail,
+      businessName: sessionMetadata.business_name,
+      businessType: sessionMetadata.business_type,
+      source: sessionMetadata.utm_source ?? "stripe",
+      status: "Prospect",
+      totalSpend: (session.amount_total ?? 0) / 100,
+    }).catch((err) =>
+      console.error("[stripe webhook] Airtable contact sync failed:", err),
+    );
+
+    syncDeal({
+      contactEmail: customerEmail,
+      serviceType: sessionMetadata.report_type ?? "business_intelligence",
+      value: (session.amount_total ?? 0) / 100,
+      currency: (session.currency ?? "gbp").toUpperCase(),
+      status: "Paid",
+    }).catch((err) =>
+      console.error("[stripe webhook] Airtable deal sync failed:", err),
+    );
+
+    // Sync to Loops
+    upsertLoopsContact({
+      email: customerEmail,
+      source: "purchase",
+      userGroup: "customer",
+    }).catch((err) =>
+      console.error("[stripe webhook] Loops sync failed:", err),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -165,6 +243,80 @@ async function handlePaymentFailed(
         console.error("[stripe webhook] Failed to log payment event:", error);
       }
     });
+}
+
+// ---------------------------------------------------------------------------
+// invoice.payment_succeeded (retainer renewals)
+// ---------------------------------------------------------------------------
+
+async function handleInvoiceSucceeded(
+  invoice: Stripe.Invoice,
+): Promise<void> {
+  const subscriptionId = invoice.subscription as string | null;
+  if (!subscriptionId) return;
+
+  // Update subscription period in our DB
+  const { data: sub } = await supabase
+    .from("subscriptions")
+    .select("id, business_id, user_id")
+    .eq("stripe_subscription_id", subscriptionId)
+    .maybeSingle();
+
+  if (!sub) return;
+
+  await supabase
+    .from("subscriptions")
+    .update({
+      status: "active",
+      current_period_start: invoice.period_start
+        ? new Date(invoice.period_start * 1000).toISOString()
+        : undefined,
+      current_period_end: invoice.period_end
+        ? new Date(invoice.period_end * 1000).toISOString()
+        : undefined,
+    })
+    .eq("id", sub.id);
+
+  console.log(
+    `[stripe webhook] Invoice paid for subscription ${subscriptionId}`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// customer.subscription.updated
+// ---------------------------------------------------------------------------
+
+async function handleSubscriptionUpdated(
+  subscription: Stripe.Subscription,
+): Promise<void> {
+  const stripeSubId = subscription.id;
+
+  const statusMap: Record<string, string> = {
+    active: "active",
+    past_due: "past_due",
+    canceled: "cancelled",
+    paused: "paused",
+    unpaid: "past_due",
+  };
+
+  const mappedStatus = statusMap[subscription.status] ?? subscription.status;
+
+  await supabase
+    .from("subscriptions")
+    .update({
+      status: mappedStatus,
+      current_period_start: new Date(
+        subscription.current_period_start * 1000,
+      ).toISOString(),
+      current_period_end: new Date(
+        subscription.current_period_end * 1000,
+      ).toISOString(),
+    })
+    .eq("stripe_subscription_id", stripeSubId);
+
+  console.log(
+    `[stripe webhook] Subscription ${stripeSubId} updated to ${mappedStatus}`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -213,6 +365,84 @@ async function handleSubscriptionDeleted(
 
   console.log(
     `[stripe webhook] Subscription canceled for business ${business.id} (customer: ${customerId})`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// invoice.payment_succeeded (retainer renewals)
+// ---------------------------------------------------------------------------
+
+async function handleInvoiceSucceeded(
+  invoice: Stripe.Invoice,
+): Promise<void> {
+  const subscriptionId = invoice.subscription as string | null;
+  if (!subscriptionId) return;
+
+  // Update subscription period dates
+  const { error } = await supabase
+    .from("subscriptions")
+    .update({
+      status: "active",
+      current_period_start: invoice.period_start
+        ? new Date(invoice.period_start * 1000).toISOString()
+        : null,
+      current_period_end: invoice.period_end
+        ? new Date(invoice.period_end * 1000).toISOString()
+        : null,
+    })
+    .eq("stripe_subscription_id", subscriptionId);
+
+  if (error) {
+    console.error(
+      `[stripe webhook] Failed to update subscription ${subscriptionId}:`,
+      error,
+    );
+  }
+
+  console.log(`[stripe webhook] Invoice paid for subscription ${subscriptionId}`);
+}
+
+// ---------------------------------------------------------------------------
+// customer.subscription.updated
+// ---------------------------------------------------------------------------
+
+async function handleSubscriptionUpdated(
+  subscription: Stripe.Subscription,
+): Promise<void> {
+  const statusMap: Record<string, string> = {
+    active: "active",
+    past_due: "past_due",
+    canceled: "cancelled",
+    paused: "paused",
+    unpaid: "past_due",
+  };
+
+  const mappedStatus = statusMap[subscription.status] ?? subscription.status;
+
+  const { error } = await supabase
+    .from("subscriptions")
+    .update({
+      status: mappedStatus,
+      amount_monthly: subscription.items.data[0]?.price?.unit_amount ?? null,
+      currency: subscription.currency?.toUpperCase(),
+      current_period_start: new Date(
+        subscription.current_period_start * 1000,
+      ).toISOString(),
+      current_period_end: new Date(
+        subscription.current_period_end * 1000,
+      ).toISOString(),
+    })
+    .eq("stripe_subscription_id", subscription.id);
+
+  if (error) {
+    console.error(
+      `[stripe webhook] Failed to update subscription ${subscription.id}:`,
+      error,
+    );
+  }
+
+  console.log(
+    `[stripe webhook] Subscription ${subscription.id} updated to ${mappedStatus}`,
   );
 }
 

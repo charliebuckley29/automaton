@@ -103,3 +103,58 @@ export async function generateScorecardAnalysis(
   const textBlock = response.content.find((b) => b.type === "text");
   return textBlock?.text ?? "";
 }
+
+/**
+ * Business intelligence update — reconciles new interaction data with
+ * existing intelligence record. Uses Opus for nuanced reconciliation.
+ */
+export async function generateIntelligenceUpdate(
+  systemPrompt: string,
+  messages: Message[],
+): Promise<string> {
+  const response = await anthropic.messages.create({
+    model: "claude-opus-4-5-20250514",
+    max_tokens: 4000,
+    system: systemPrompt,
+    messages,
+  });
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  return textBlock?.text ?? "";
+}
+
+/**
+ * Email personalisation — generates personalised paragraphs for
+ * templated emails. Uses Haiku for speed and cost.
+ */
+export async function generateEmailPersonalisation(
+  prompt: string,
+): Promise<string> {
+  const response = await anthropic.messages.create({
+    model: "claude-haiku-4-5-20250514",
+    max_tokens: 500,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  return textBlock?.text ?? "";
+}
+
+/**
+ * Monthly retainer brief — structured summary for ongoing clients.
+ * Uses Sonnet for good balance of quality and cost.
+ */
+export async function generateRetainerBrief(
+  systemPrompt: string,
+  messages: Message[],
+): Promise<string> {
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-6-20250514",
+    max_tokens: 4000,
+    system: systemPrompt,
+    messages,
+  });
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  return textBlock?.text ?? "";
+}

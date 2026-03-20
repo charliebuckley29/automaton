@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { supabase } from "../../services/supabase.js";
 import { runResearchPipeline } from "../../lib/research.js";
 import { requireAuth } from "../../middleware/auth.js";
+import { determineInterviewFormat } from "../../lib/intelligence.js";
 
 const router = Router();
 
@@ -62,9 +63,38 @@ router.post("/run", requireAuth, async (req: Request, res: Response) => {
     // 3. Respond immediately (pipeline updates session status on its own)
     // ------------------------------------------------------------------
 
+    // ------------------------------------------------------------------
+    // 3. Determine interview format for returning businesses
+    // ------------------------------------------------------------------
+
+    let interviewFormatResult = null;
+    if (session.business_id) {
+      interviewFormatResult = await determineInterviewFormat(
+        session.business_id,
+        session.report_type,
+      );
+
+      // Store format in interview state for the voice route to pick up
+      await supabase
+        .from("voice_interview_state")
+        .upsert(
+          {
+            session_id,
+            interview_format: interviewFormatResult.format,
+          },
+          { onConflict: "session_id" },
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // 4. Respond
+    // ------------------------------------------------------------------
+
     res.json({
       message: "Research pipeline completed",
       session_id,
+      interview_format: interviewFormatResult?.format ?? "first_time",
+      opening_line: interviewFormatResult?.openingLine ?? "",
       summary: {
         websiteScraped: !!researchData.websiteScrape,
         pageSpeedCollected: !!researchData.pageSpeed,
