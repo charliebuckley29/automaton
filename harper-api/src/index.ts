@@ -11,6 +11,9 @@ import emailRouter from "./routes/email/trigger.js";
 import scorecardRouter from "./routes/scorecard/analyze.js";
 import offersRouter from "./routes/offers/index.js";
 import bulkRouter from "./routes/bulk/index.js";
+import subscriptionsRouter from "./routes/subscriptions/index.js";
+import implementationsRouter from "./routes/implementations/index.js";
+import agencyRouter from "./routes/agency/index.js";
 
 const app = express();
 
@@ -58,6 +61,9 @@ app.use("/email", emailRouter);
 app.use("/scorecard", scorecardRouter);
 app.use("/offers", offersRouter);
 app.use("/bulk", bulkRouter);
+app.use("/subscriptions", subscriptionsRouter);
+app.use("/implementations", implementationsRouter);
+app.use("/agency", agencyRouter);
 
 // ---------------------------------------------------------------------------
 // Global error handler

@@ -111,6 +111,63 @@ async function handleCheckoutCompleted(
   }
 
   // ------------------------------------------------------------------
+  // Handle subscription checkout
+  // ------------------------------------------------------------------
+
+  if (session.mode === "subscription" || sessionMetadata.type === "subscription") {
+    const businessId = sessionMetadata.business_id;
+    const userId = sessionMetadata.user_id;
+    const retainerType = sessionMetadata.retainer_type;
+    const stripeSubscriptionId = session.subscription as string | null;
+
+    if (!businessId || !userId || !retainerType || !stripeSubscriptionId) {
+      console.error(
+        `[stripe webhook] Missing metadata for subscription checkout ${session.id}`,
+      );
+      return;
+    }
+
+    // Idempotency: check if we already created this subscription
+    const { data: existingSub } = await supabase
+      .from("subscriptions")
+      .select("id")
+      .eq("stripe_subscription_id", stripeSubscriptionId)
+      .maybeSingle();
+
+    if (existingSub) {
+      console.log(
+        `[stripe webhook] Subscription already exists for ${stripeSubscriptionId}`,
+      );
+      return;
+    }
+
+    const { error: subError } = await supabase
+      .from("subscriptions")
+      .insert({
+        business_id: businessId,
+        user_id: userId,
+        stripe_subscription_id: stripeSubscriptionId,
+        retainer_type: retainerType,
+        status: "active",
+        currency: (session.currency ?? "gbp").toUpperCase(),
+        amount_monthly: session.amount_total,
+        current_period_start: new Date().toISOString(),
+        current_period_end: null,
+      });
+
+    if (subError) {
+      throw new Error(
+        `Failed to create subscription record: ${subError.message}`,
+      );
+    }
+
+    console.log(
+      `[stripe webhook] Created subscription for business ${businessId} (${retainerType})`,
+    );
+    return;
+  }
+
+  // ------------------------------------------------------------------
   // Ensure business record exists
   // ------------------------------------------------------------------
 
@@ -243,80 +300,6 @@ async function handlePaymentFailed(
         console.error("[stripe webhook] Failed to log payment event:", error);
       }
     });
-}
-
-// ---------------------------------------------------------------------------
-// invoice.payment_succeeded (retainer renewals)
-// ---------------------------------------------------------------------------
-
-async function handleInvoiceSucceeded(
-  invoice: Stripe.Invoice,
-): Promise<void> {
-  const subscriptionId = invoice.subscription as string | null;
-  if (!subscriptionId) return;
-
-  // Update subscription period in our DB
-  const { data: sub } = await supabase
-    .from("subscriptions")
-    .select("id, business_id, user_id")
-    .eq("stripe_subscription_id", subscriptionId)
-    .maybeSingle();
-
-  if (!sub) return;
-
-  await supabase
-    .from("subscriptions")
-    .update({
-      status: "active",
-      current_period_start: invoice.period_start
-        ? new Date(invoice.period_start * 1000).toISOString()
-        : undefined,
-      current_period_end: invoice.period_end
-        ? new Date(invoice.period_end * 1000).toISOString()
-        : undefined,
-    })
-    .eq("id", sub.id);
-
-  console.log(
-    `[stripe webhook] Invoice paid for subscription ${subscriptionId}`,
-  );
-}
-
-// ---------------------------------------------------------------------------
-// customer.subscription.updated
-// ---------------------------------------------------------------------------
-
-async function handleSubscriptionUpdated(
-  subscription: Stripe.Subscription,
-): Promise<void> {
-  const stripeSubId = subscription.id;
-
-  const statusMap: Record<string, string> = {
-    active: "active",
-    past_due: "past_due",
-    canceled: "cancelled",
-    paused: "paused",
-    unpaid: "past_due",
-  };
-
-  const mappedStatus = statusMap[subscription.status] ?? subscription.status;
-
-  await supabase
-    .from("subscriptions")
-    .update({
-      status: mappedStatus,
-      current_period_start: new Date(
-        subscription.current_period_start * 1000,
-      ).toISOString(),
-      current_period_end: new Date(
-        subscription.current_period_end * 1000,
-      ).toISOString(),
-    })
-    .eq("stripe_subscription_id", stripeSubId);
-
-  console.log(
-    `[stripe webhook] Subscription ${stripeSubId} updated to ${mappedStatus}`,
-  );
 }
 
 // ---------------------------------------------------------------------------
