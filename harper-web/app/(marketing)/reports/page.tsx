@@ -1,7 +1,23 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Diagnostic Reports",
+  description:
+    "Get a comprehensive AI diagnostic report for your business. 50+ dimension analysis, competitor research, SEO audit, and a prioritised action roadmap — delivered in 24 hours.",
+  openGraph: {
+    title: "Diagnostic Reports | Harper Automation",
+    description:
+      "A comprehensive AI diagnostic that analyses your business across 50+ dimensions with a prioritised action roadmap.",
+    type: "website",
+  },
+  alternates: {
+    canonical: "/reports",
+  },
+};
 
 const features = [
   "50+ dimension business diagnostic",
@@ -61,29 +77,6 @@ export default async function ReportsPage() {
 
   return (
     <main className="min-h-screen">
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-harper-gold/10 bg-midnight/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="font-display text-xl font-bold text-chalk">
-            Harper<span className="text-harper-gold">.</span>
-          </Link>
-          <div className="hidden items-center gap-8 md:flex">
-            <Link
-              href="/"
-              className="text-sm text-chalk/70 transition-colors hover:text-chalk"
-            >
-              Home
-            </Link>
-            <Link
-              href="/dashboard"
-              className="text-sm text-chalk/70 transition-colors hover:text-chalk"
-            >
-              Dashboard
-            </Link>
-          </div>
-        </div>
-      </nav>
-
       {/* Hero / VSL Section */}
       <section className="flex min-h-[70vh] flex-col items-center justify-center px-6 pt-24">
         <div className="mx-auto max-w-4xl text-center">
@@ -274,18 +267,6 @@ export default async function ReportsPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-chalk/10 px-6 py-12">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 md:flex-row">
-          <p className="font-display text-lg font-bold">
-            Harper<span className="text-harper-gold">.</span>
-          </p>
-          <p className="text-xs text-chalk/40">
-            &copy; {new Date().getFullYear()} Harper Automation Ltd. All rights
-            reserved.
-          </p>
-        </div>
-      </footer>
     </main>
   );
 }

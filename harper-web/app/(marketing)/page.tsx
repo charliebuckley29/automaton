@@ -1,4 +1,32 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "AI-Powered Business Diagnostics & Growth Automation for SMEs",
+  description:
+    "Harper diagnoses your business across 50+ dimensions, identifies hidden growth opportunities, and builds automations that compound results. Get clarity in 24 hours.",
+  keywords: [
+    "business diagnostic",
+    "SME growth",
+    "AI automation",
+    "business intelligence",
+    "SEO audit",
+    "operations automation",
+    "small business growth",
+    "competitor analysis",
+    "revenue growth",
+    "digital transformation",
+  ],
+  openGraph: {
+    title: "Harper Automation — AI-Powered Growth for SMEs",
+    description:
+      "Diagnose your business across 50+ dimensions. Get a scored report with prioritised recommendations in 24 hours.",
+    type: "website",
+  },
+  alternates: {
+    canonical: "/",
+  },
+};
 
 const painPoints = [
   {
@@ -84,35 +112,6 @@ const steps = [
 export default function HomePage() {
   return (
     <main className="min-h-screen">
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-harper-gold/10 bg-midnight/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="font-display text-xl font-bold text-chalk">
-            Harper<span className="text-harper-gold">.</span>
-          </Link>
-          <div className="hidden items-center gap-8 md:flex">
-            <Link
-              href="/reports"
-              className="text-sm text-chalk/70 transition-colors hover:text-chalk"
-            >
-              Reports
-            </Link>
-            <Link
-              href="/dashboard"
-              className="text-sm text-chalk/70 transition-colors hover:text-chalk"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/reports"
-              className="rounded-full bg-harper-gold px-5 py-2 text-sm font-medium text-midnight transition-all hover:bg-harper-gold/90"
-            >
-              Get Started
-            </Link>
-          </div>
-        </div>
-      </nav>
-
       {/* Hero */}
       <section className="relative flex min-h-screen items-center justify-center overflow-hidden px-6">
         {/* Subtle radial gradient behind hero */}
@@ -144,6 +143,47 @@ export default function HomePage() {
             >
               See How It Works
             </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Trusted By — Logo Wall */}
+      <section className="overflow-hidden px-6 py-16">
+        <p className="mb-10 text-center text-xs font-semibold uppercase tracking-[0.25em] text-chalk/30">
+          Trusted by
+        </p>
+        <div className="relative mx-auto max-w-5xl">
+          {/* Fade masks */}
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-midnight to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-midnight to-transparent" />
+          <div className="overflow-hidden">
+            <div className="logo-wall-track">
+              {/* Logos are duplicated for seamless infinite scroll */}
+              {[...Array(2)].map((_, setIndex) => (
+                <div key={setIndex} className="flex shrink-0 items-center gap-16 px-8">
+                  {/* Advertize.io */}
+                  <span className="shrink-0 whitespace-nowrap font-sans text-lg font-bold tracking-tight text-chalk/20">
+                    Advertize<span className="text-chalk/25">.io</span>
+                  </span>
+                  {/* The University of Oxford */}
+                  <span className="shrink-0 whitespace-nowrap font-display text-lg font-semibold text-chalk/20">
+                    The University of Oxford
+                  </span>
+                  {/* Reputations.io */}
+                  <span className="shrink-0 whitespace-nowrap font-sans text-lg font-bold tracking-tight text-chalk/20">
+                    Reputations<span className="text-chalk/25">.io</span>
+                  </span>
+                  {/* London School of Economics */}
+                  <span className="shrink-0 whitespace-nowrap font-display text-lg font-semibold text-chalk/20">
+                    London School of Economics
+                  </span>
+                  {/* Brand Protected */}
+                  <span className="shrink-0 whitespace-nowrap font-sans text-lg font-bold uppercase tracking-wider text-chalk/20">
+                    Brand Protected
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -272,18 +312,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-chalk/10 px-6 py-12">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 md:flex-row">
-          <p className="font-display text-lg font-bold">
-            Harper<span className="text-harper-gold">.</span>
-          </p>
-          <p className="text-xs text-chalk/40">
-            &copy; {new Date().getFullYear()} Harper Automation Ltd. All rights
-            reserved.
-          </p>
-        </div>
-      </footer>
     </main>
   );
 }

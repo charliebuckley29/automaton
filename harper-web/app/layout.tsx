@@ -21,7 +21,11 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Harper Automation — AI-Powered Growth for SMEs",
+  metadataBase: new URL("https://harper.ai"),
+  title: {
+    default: "Harper Automation — AI-Powered Growth for SMEs",
+    template: "%s | Harper Automation",
+  },
   description:
     "Harper Automation diagnoses your business, builds intelligent automations, and compounds growth — so you can focus on what matters.",
   openGraph: {
@@ -29,7 +33,20 @@ export const metadata: Metadata = {
     description:
       "AI-powered diagnostics and automation for small and medium businesses.",
     type: "website",
+    siteName: "Harper Automation",
+    locale: "en_GB",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "Harper Automation — AI-Powered Growth for SMEs",
+    description:
+      "AI-powered diagnostics and automation for small and medium businesses.",
+  },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+  themeColor: "#0D0D0D",
 };
 
 export default function RootLayout({

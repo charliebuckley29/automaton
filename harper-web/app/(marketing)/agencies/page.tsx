@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 
 /* ------------------------------------------------------------------ */
@@ -117,35 +116,6 @@ const howItWorks = [
 export default function AgenciesPage() {
   return (
     <main className="min-h-screen bg-midnight">
-      {/* ── Navigation ────────────────────────────────────────────────── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-harper-gold/10 bg-midnight/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="font-display text-xl font-bold text-chalk">
-            Harper<span className="text-harper-gold">.</span>
-          </Link>
-          <div className="hidden items-center gap-8 md:flex">
-            <Link
-              href="/"
-              className="text-sm text-chalk/70 transition-colors hover:text-chalk"
-            >
-              Home
-            </Link>
-            <Link
-              href="/reports"
-              className="text-sm text-chalk/70 transition-colors hover:text-chalk"
-            >
-              Reports
-            </Link>
-            <a
-              href="#pricing"
-              className="rounded-full bg-harper-gold px-5 py-2 text-sm font-medium text-midnight transition-all hover:bg-harper-gold/90"
-            >
-              View Pricing
-            </a>
-          </div>
-        </div>
-      </nav>
-
       {/* ── Hero ──────────────────────────────────────────────────────── */}
       <section className="relative flex min-h-[85vh] items-center justify-center overflow-hidden px-6 pt-20">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(201,168,76,0.06)_0%,_transparent_70%)]" />
@@ -361,18 +331,6 @@ export default function AgenciesPage() {
         </div>
       </section>
 
-      {/* ── Footer ────────────────────────────────────────────────────── */}
-      <footer className="border-t border-chalk/10 px-6 py-12">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 md:flex-row">
-          <p className="font-display text-lg font-bold">
-            Harper<span className="text-harper-gold">.</span>
-          </p>
-          <p className="text-xs text-chalk/40">
-            &copy; {new Date().getFullYear()} Harper Automation Ltd. All rights
-            reserved.
-          </p>
-        </div>
-      </footer>
     </main>
   );
 }

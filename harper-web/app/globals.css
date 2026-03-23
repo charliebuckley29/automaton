@@ -91,3 +91,22 @@
     transform: translateY(0);
   }
 }
+
+@keyframes scroll-logos {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.logo-wall-track {
+  display: flex;
+  width: max-content;
+  animation: scroll-logos 25s linear infinite;
+}
+
+.logo-wall-track:hover {
+  animation-play-state: paused;
+}

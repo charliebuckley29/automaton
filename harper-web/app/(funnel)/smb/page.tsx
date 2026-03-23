@@ -1,5 +1,21 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ScoreRing } from "@/components/ui/score-ring";
+
+export const metadata: Metadata = {
+  title: "Small Business Diagnostic",
+  description:
+    "Stop wasting money on marketing that doesn't work. For just £47, get an AI-powered diagnostic that reveals exactly what's working, what's broken, and where to grow next.",
+  openGraph: {
+    title: "Small Business Diagnostic | Harper Automation",
+    description:
+      "A comprehensive AI diagnostic for small businesses — scored insights across SEO, operations, marketing, and growth. Results in 24 hours.",
+    type: "website",
+  },
+  alternates: {
+    canonical: "/smb",
+  },
+};
 
 /* ------------------------------------------------------------------ */
 /*  Static data                                                        */

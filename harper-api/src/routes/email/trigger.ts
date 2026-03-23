@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../../services/supabase.js";
 import { sendReportEmail } from "../../services/resend.js";
+import { sendTemplatedEmail } from "../../services/email-templates.js";
 import { triggerReportUpsellSequence, triggerScorecardSequence } from "../../services/loops.js";
 import { requireAuth } from "../../middleware/auth.js";
 
@@ -166,6 +167,177 @@ router.post("/send-custom", requireAuth, async (req: Request, res: Response) => 
   } catch (err) {
     console.error("[email/send-custom] Error:", err);
     res.status(500).json({ error: "Email send failed" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /email/welcome
+// Triggered after account creation. Sends a welcome email via Handlebars.
+// ---------------------------------------------------------------------------
+
+router.post("/welcome", async (req: Request, res: Response) => {
+  const { to, firstName, dashboardUrl } = req.body as {
+    to: string;
+    firstName: string;
+    dashboardUrl: string;
+  };
+
+  if (!to || !firstName) {
+    res.status(400).json({ error: "to and firstName are required" });
+    return;
+  }
+
+  try {
+    await sendTemplatedEmail({
+      to,
+      subject: "Welcome to Harper — let's get started",
+      template: "welcome",
+      data: {
+        firstName,
+        dashboardUrl: dashboardUrl ?? "https://app.harper.co/dashboard",
+      },
+    });
+
+    res.json({ message: "Welcome email sent" });
+  } catch (err) {
+    console.error("[email/welcome] Error:", err);
+    res.status(500).json({ error: "Welcome email failed" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /email/interview-reminder
+// Triggered to remind a user to complete their voice interview.
+// ---------------------------------------------------------------------------
+
+router.post("/interview-reminder", async (req: Request, res: Response) => {
+  const { to, firstName, businessName, interviewUrl, hoursRemaining } =
+    req.body as {
+      to: string;
+      firstName: string;
+      businessName: string;
+      interviewUrl: string;
+      hoursRemaining: number;
+    };
+
+  if (!to || !firstName || !interviewUrl) {
+    res
+      .status(400)
+      .json({ error: "to, firstName, and interviewUrl are required" });
+    return;
+  }
+
+  try {
+    await sendTemplatedEmail({
+      to,
+      subject: `Your voice interview for ${businessName ?? "your business"} is waiting`,
+      template: "interview-reminder",
+      data: {
+        firstName,
+        businessName: businessName ?? "your business",
+        interviewUrl,
+        hoursRemaining: hoursRemaining ?? 48,
+      },
+    });
+
+    res.json({ message: "Interview reminder email sent" });
+  } catch (err) {
+    console.error("[email/interview-reminder] Error:", err);
+    res.status(500).json({ error: "Interview reminder email failed" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /email/upsell-retainer
+// Triggered after a report is delivered to upsell retainer services.
+// ---------------------------------------------------------------------------
+
+router.post("/upsell-retainer", async (req: Request, res: Response) => {
+  const { to, firstName, businessName, topFinding, topOpportunity, retainerUrl, benefits } =
+    req.body as {
+      to: string;
+      firstName: string;
+      businessName: string;
+      topFinding: string;
+      topOpportunity: string;
+      retainerUrl: string;
+      benefits: string[];
+    };
+
+  if (!to || !firstName) {
+    res.status(400).json({ error: "to and firstName are required" });
+    return;
+  }
+
+  try {
+    await sendTemplatedEmail({
+      to,
+      subject: `Next steps for ${businessName ?? "your business"} — Harper Retainer`,
+      template: "upsell-retainer",
+      data: {
+        firstName,
+        businessName: businessName ?? "your business",
+        topFinding: topFinding ?? "Multiple growth opportunities identified",
+        topOpportunity: topOpportunity ?? "Strategic improvements available",
+        retainerUrl: retainerUrl ?? "https://app.harper.co/retainer",
+        benefits: benefits ?? [
+          "Monthly strategy calls with your dedicated analyst",
+          "Ongoing competitor and market monitoring",
+          "Quarterly updated reports with fresh data",
+          "Priority access to new Harper features",
+        ],
+      },
+    });
+
+    res.json({ message: "Upsell retainer email sent" });
+  } catch (err) {
+    console.error("[email/upsell-retainer] Error:", err);
+    res.status(500).json({ error: "Upsell retainer email failed" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /email/agency-welcome
+// Triggered after an agency purchases a bulk pack.
+// ---------------------------------------------------------------------------
+
+router.post("/agency-welcome", async (req: Request, res: Response) => {
+  const { to, agencyName, creditCount, dashboardUrl, features } =
+    req.body as {
+      to: string;
+      agencyName: string;
+      creditCount: number;
+      dashboardUrl: string;
+      features: string[];
+    };
+
+  if (!to || !agencyName) {
+    res.status(400).json({ error: "to and agencyName are required" });
+    return;
+  }
+
+  try {
+    await sendTemplatedEmail({
+      to,
+      subject: `Welcome to Harper — your agency pack is live`,
+      template: "agency-welcome",
+      data: {
+        agencyName,
+        creditCount: creditCount ?? 10,
+        dashboardUrl: dashboardUrl ?? "https://app.harper.co/agency",
+        features: features ?? [
+          "Generate reports for any client in minutes",
+          "White-label PDF exports with your branding",
+          "Centralised billing and credit management",
+          "Dedicated agency support channel",
+        ],
+      },
+    });
+
+    res.json({ message: "Agency welcome email sent" });
+  } catch (err) {
+    console.error("[email/agency-welcome] Error:", err);
+    res.status(500).json({ error: "Agency welcome email failed" });
   }
 });
 

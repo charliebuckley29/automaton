@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Your Harper Report is Ready</title>
+  <title>Welcome to Harper</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #0D0D0D; font-family: 'Segoe UI', Arial, sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #0D0D0D;">
@@ -25,50 +25,34 @@
             <td style="background-color: #1A1A1A; border-radius: 12px; border: 1px solid #2A2A2A; padding: 40px;">
 
               <h1 style="color: #F5F2EC; font-family: Georgia, 'Times New Roman', serif; font-size: 24px; margin: 0 0 16px;">
-                Your report is ready.
+                Welcome aboard, {{firstName}}.
               </h1>
 
               <p style="color: #F5F2EC; opacity: 0.8; font-size: 16px; line-height: 1.6; margin: 0 0 24px;">
-                Hi there — your business intelligence report for
-                <strong style="color: #C9A84C;">{{businessName}}</strong>
-                has been generated and is ready for you.
+                Your Harper account is set up and ready to go. We help businesses
+                uncover growth opportunities using AI-powered intelligence — and
+                you're now part of the journey.
               </p>
-
-              {{#if overallScore}}
-              <div style="background-color: #0D0D0D; border-radius: 8px; padding: 16px; margin-bottom: 24px; text-align: center;">
-                <p style="color: #F5F2EC; opacity: 0.5; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin: 0 0 8px;">
-                  Overall Score
-                </p>
-                <span style="font-size: 36px; font-weight: bold; color: {{scoreColor overallScore}};">
-                  {{overallScore}}/100
-                </span>
-              </div>
-              {{/if}}
-
-              {{#if generatedAt}}
-              <p style="color: #F5F2EC; opacity: 0.5; font-size: 13px; margin: 0 0 8px;">
-                Generated on {{formatDate generatedAt}}
-              </p>
-              {{/if}}
 
               <p style="color: #F5F2EC; opacity: 0.7; font-size: 15px; line-height: 1.6; margin: 0 0 32px;">
-                {{personalizedOpening}}
+                Head to your dashboard to kick things off. You can start a voice
+                interview, order a report, or explore the scorecard — all from
+                one place.
               </p>
 
               <!-- CTA Button -->
               <table role="presentation" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
                 <tr>
                   <td style="background-color: #C9A84C; border-radius: 50px; text-align: center;">
-                    <a href="{{reportUrl}}" style="display: inline-block; padding: 14px 32px; color: #0D0D0D; text-decoration: none; font-weight: 600; font-size: 15px;">
-                      View Your Report
+                    <a href="{{dashboardUrl}}" style="display: inline-block; padding: 14px 32px; color: #0D0D0D; text-decoration: none; font-weight: 600; font-size: 15px;">
+                      Go to Your Dashboard
                     </a>
                   </td>
                 </tr>
               </table>
 
               <p style="color: #F5F2EC; opacity: 0.4; font-size: 13px; margin: 24px 0 0; text-align: center;">
-                You can also download the PDF from your
-                <a href="{{dashboardUrl}}" style="color: #C9A84C; text-decoration: none;">dashboard</a>.
+                Need help getting started? Just reply to this email.
               </p>
             </td>
           </tr>

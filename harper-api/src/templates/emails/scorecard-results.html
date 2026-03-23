@@ -25,7 +25,8 @@
             <td style="background-color: #1A1A1A; border-radius: 12px; border: 1px solid #2A2A2A; padding: 40px;">
 
               <h1 style="color: #F5F2EC; font-family: Georgia, 'Times New Roman', serif; font-size: 24px; margin: 0 0 8px;">
-                Your AI Readiness Score: {{score}}/100
+                Your AI Readiness Score:
+                <span style="color: {{scoreColor score}};">{{score}}/100</span>
               </h1>
 
               <p style="color: #C9A84C; font-size: 15px; margin: 0 0 24px;">
@@ -35,6 +36,13 @@
               <p style="color: #F5F2EC; opacity: 0.8; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
                 {{summary}}
               </p>
+
+              <!-- Score bar -->
+              <div style="background-color: #0D0D0D; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                <div style="background-color: #2A2A2A; border-radius: 4px; height: 8px; overflow: hidden;">
+                  <div style="background-color: {{scoreColor score}}; width: {{score}}%; height: 100%; border-radius: 4px;"></div>
+                </div>
+              </div>
 
               <!-- Top 3 recommendations -->
               <h2 style="color: #F5F2EC; font-size: 16px; margin: 0 0 16px; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.5;">
