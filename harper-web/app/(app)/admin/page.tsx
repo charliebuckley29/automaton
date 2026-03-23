@@ -52,6 +52,7 @@ interface Subscription {
   id: string;
   user_email: string;
   business_name: string | null;
+  retainer_type: string | null;
   status: string;
   amount_monthly: number;
   created_at: string;
@@ -70,7 +71,7 @@ interface AnalyticsData {
   conversionRate: number;
   averageReportScore: number;
   activeRetainers: number;
-  totalRevenue: number;
+  monthlyRetainerRevenue: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -80,7 +81,7 @@ interface AnalyticsData {
 export default function AdminPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "pipeline" | "analytics" | "offers">("overview");
   const [stats, setStats] = useState<Stats>({
     totalUsers: 0,
     totalReports: 0,
@@ -96,7 +97,7 @@ export default function AdminPage() {
     conversionRate: 0,
     averageReportScore: 0,
     activeRetainers: 0,
-    totalRevenue: 0,
+    monthlyRetainerRevenue: 0,
   });
 
   /* Pipeline lead counts by status */
@@ -118,7 +119,7 @@ export default function AdminPage() {
   const loadData = useCallback(async () => {
     const supabase = createBrowserClient();
 
-    // Admin role check
+    /* Admin role check */
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -139,7 +140,7 @@ export default function AdminPage() {
       return;
     }
 
-    // Fetch all data in parallel
+    /* Fetch all data in parallel */
     const [
       usersRes,
       reportsRes,
@@ -152,22 +153,33 @@ export default function AdminPage() {
       reportScoresRes,
       sessionRevenueRes,
     ] = await Promise.all([
+      /* Total user count */
       supabase.from("profiles").select("id", { count: "exact", head: true }),
+
+      /* Total report count */
       supabase.from("reports").select("id", { count: "exact", head: true }),
+
+      /* All offers */
       supabase
         .from("offers")
         .select("*")
         .order("created_at", { ascending: false }),
+
+      /* Recent interview sessions */
       supabase
         .from("interview_sessions")
         .select("id, user_email, business_name, status, created_at")
         .order("created_at", { ascending: false })
         .limit(20),
+
+      /* Scorecard submissions (leads) — up to 100 for pipeline */
       supabase
         .from("scorecard_submissions")
         .select("id, email, business_name, overall_score, created_at, status, utm_source")
         .order("created_at", { ascending: false })
         .limit(100),
+
+      /* Payments this month for revenue */
       supabase
         .from("payments")
         .select("amount")
@@ -176,28 +188,38 @@ export default function AdminPage() {
           new Date(
             new Date().getFullYear(),
             new Date().getMonth(),
-            1
-          ).toISOString()
+            1,
+          ).toISOString(),
         ),
+
+      /* Subscriptions joined with business info */
       supabase
         .from("subscriptions")
-        .select("id, user_email, business_name, status, amount_monthly, created_at")
+        .select("id, user_email, business_name, retainer_type, status, amount_monthly, created_at")
         .order("created_at", { ascending: false }),
+
+      /* Business interactions — last 20 */
       supabase
         .from("business_interactions")
         .select("id, user_email, business_name, type, description, created_at")
         .order("created_at", { ascending: false })
         .limit(20),
+
+      /* Report scores for analytics average */
       supabase.from("reports").select("score_overall"),
+
+      /* Session revenue */
       supabase.from("report_sessions").select("amount_paid"),
     ]);
 
+    /* ── Compute stats ──────────────────────────────────────────── */
     const activeOfferCount =
       offersRes.data?.filter((o) => o.active).length ?? 0;
+
     const monthRevenue =
       revenueRes.data?.reduce(
         (sum: number, p: { amount: number }) => sum + (p.amount ?? 0),
-        0
+        0,
       ) ?? 0;
 
     setStats({
@@ -213,7 +235,7 @@ export default function AdminPage() {
     if (subscriptionsRes.data) setSubscriptions(subscriptionsRes.data);
     if (interactionsRes.data) setBusinessInteractions(interactionsRes.data);
 
-    // Compute lead counts by status
+    /* ── Lead counts by status ──────────────────────────────────── */
     const allLeads = leadsRes.data ?? [];
     const counts: Record<string, number> = { new: 0, sequenced: 0, converted: 0 };
     allLeads.forEach((l) => {
@@ -222,26 +244,33 @@ export default function AdminPage() {
     });
     setLeadCountsByStatus(counts);
 
-    // Compute analytics
-    const activeSubsList = subscriptionsRes.data?.filter((s) => s.status === "active") ?? [];
+    /* ── Analytics computations ─────────────────────────────────── */
+    const activeSubsList =
+      subscriptionsRes.data?.filter((s) => s.status === "active") ?? [];
     const totalLeads = allLeads.length;
     const convertedLeads = allLeads.filter((l) => l.status === "converted").length;
-    const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
+    const conversionRate =
+      totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
 
-    const scores = reportScoresRes.data?.map((r) => r.score_overall).filter(Boolean) ?? [];
-    const avgScore = scores.length > 0 ? scores.reduce((a: number, b: number) => a + b, 0) / scores.length : 0;
+    const scores =
+      reportScoresRes.data
+        ?.map((r) => r.score_overall)
+        .filter(Boolean) ?? [];
+    const avgScore =
+      scores.length > 0
+        ? scores.reduce((a: number, b: number) => a + b, 0) / scores.length
+        : 0;
 
-    const sessionRevenue = sessionRevenueRes.data?.reduce(
-      (sum: number, r: { amount_paid: number }) => sum + (r.amount_paid ?? 0),
-      0
-    ) ?? 0;
-    const subRevenue = activeSubsList.reduce((sum, s) => sum + (s.amount_monthly ?? 0), 0);
+    const monthlyRetainerRevenue = activeSubsList.reduce(
+      (sum, s) => sum + (s.amount_monthly ?? 0),
+      0,
+    );
 
     setAnalytics({
       conversionRate,
       averageReportScore: Math.round(avgScore * 10) / 10,
       activeRetainers: activeSubsList.length,
-      totalRevenue: (sessionRevenue + subRevenue) / 100,
+      monthlyRetainerRevenue: monthlyRetainerRevenue / 100,
     });
 
     setLoading(false);
@@ -261,8 +290,8 @@ export default function AdminPage() {
 
     setOffers((prev) =>
       prev.map((o) =>
-        o.id === offerId ? { ...o, active: !currentActive } : o
-      )
+        o.id === offerId ? { ...o, active: !currentActive } : o,
+      ),
     );
     setStats((prev) => ({
       ...prev,
@@ -280,7 +309,7 @@ export default function AdminPage() {
 
     const supabase = createBrowserClient();
     const expiresAt = new Date(
-      Date.now() + Number(flashDuration) * 60 * 60 * 1000
+      Date.now() + Number(flashDuration) * 60 * 60 * 1000,
     ).toISOString();
 
     const { error } = await supabase.from("offers").insert({
@@ -303,7 +332,8 @@ export default function AdminPage() {
       setFlashDiscount("");
       setFlashDuration("");
       setFlashMaxRedemptions("");
-      // Reload offers
+
+      /* Reload offers */
       const { data } = await supabase
         .from("offers")
         .select("*")
@@ -320,7 +350,7 @@ export default function AdminPage() {
     setFlashSubmitting(false);
   }
 
-  /* ── Helper: format date ─────────────────────────────────────────── */
+  /* ── Helper: format date ────────────────────────────────────────── */
   function fmtDate(iso: string) {
     return new Date(iso).toLocaleDateString("en-GB", {
       day: "numeric",
@@ -338,14 +368,13 @@ export default function AdminPage() {
     );
   }
 
-  /* ── Pipeline helpers ────────────────────────────────────────────── */
+  /* ── Pipeline helpers ───────────────────────────────────────────── */
   const pipelineLeads = (status: string) =>
     leads.filter((l) => (l.status ?? "new") === status);
 
   const pipelineRetainers = subscriptions.filter((s) => s.status === "active");
 
-  /* ── Tab content renderers ───────────────────────────────────────── */
-
+  /* ── Tab definitions ────────────────────────────────────────────── */
   const tabs: { key: AdminTab; label: string }[] = [
     { key: "overview", label: "Overview" },
     { key: "pipeline", label: "Pipeline" },
@@ -353,11 +382,13 @@ export default function AdminPage() {
     { key: "offers", label: "Offers" },
   ];
 
-  /* ── Render ─────────────────────────────────────────────────────── */
+  /* ================================================================ */
+  /*  Render                                                           */
+  /* ================================================================ */
   return (
     <main className="min-h-screen bg-midnight px-6 py-12">
       <div className="mx-auto max-w-7xl">
-        {/* Header */}
+        {/* ── Header ──────────────────────────────────────────────── */}
         <div className="mb-10">
           <p className="mb-1 text-sm font-medium uppercase tracking-[0.2em] text-harper-gold">
             Admin
@@ -367,7 +398,7 @@ export default function AdminPage() {
           </h1>
         </div>
 
-        {/* ── Tab Navigation ────────────────────────────────────────── */}
+        {/* ── Tab Navigation ──────────────────────────────────────── */}
         <div className="mb-10 flex gap-1 rounded-2xl border border-chalk/10 bg-chalk/[0.02] p-1.5">
           {tabs.map((tab) => (
             <button
@@ -384,12 +415,12 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {/* ================================================================ */}
-        {/*  OVERVIEW TAB                                                    */}
-        {/* ================================================================ */}
+        {/* ============================================================ */}
+        {/*  OVERVIEW TAB                                                 */}
+        {/* ============================================================ */}
         {activeTab === "overview" && (
           <>
-            {/* ── Stats Overview ──────────────────────────────────────── */}
+            {/* ── Stats Cards ───────────────────────────────────────── */}
             <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 {
@@ -404,7 +435,10 @@ export default function AdminPage() {
                 },
                 {
                   label: "Revenue This Month",
-                  value: `\u00A3${stats.revenueThisMonth.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                  value: `\u00A3${stats.revenueThisMonth.toLocaleString("en-GB", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`,
                   color: "text-score-green",
                 },
                 {
@@ -420,36 +454,45 @@ export default function AdminPage() {
                   <p className="text-xs font-semibold uppercase tracking-wider text-chalk/40">
                     {stat.label}
                   </p>
-                  <p className={`mt-2 font-display text-3xl font-bold ${stat.color}`}>
+                  <p
+                    className={`mt-2 font-display text-3xl font-bold ${stat.color}`}
+                  >
                     {stat.value}
                   </p>
                 </div>
               ))}
             </div>
 
-            {/* ── Recent Sessions ─────────────────────────────────────── */}
+            {/* ── Recent Sessions Table ──────────────────────────────── */}
             <div className="mb-10 rounded-2xl border border-chalk/10 bg-chalk/[0.02] p-6">
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-chalk/40">
+              <h2 className="mb-4 font-display text-sm font-semibold uppercase tracking-wider text-chalk/40">
                 Recent Sessions
               </h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-chalk/10">
-                      <th className="pb-3 pr-4 font-medium text-chalk/50">User</th>
+                      <th className="pb-3 pr-4 font-medium text-chalk/50">
+                        User
+                      </th>
                       <th className="pb-3 pr-4 font-medium text-chalk/50">
                         Business
                       </th>
                       <th className="pb-3 pr-4 font-medium text-chalk/50">
                         Status
                       </th>
-                      <th className="pb-3 font-medium text-chalk/50">Created</th>
+                      <th className="pb-3 font-medium text-chalk/50">
+                        Created
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {sessions.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="py-8 text-center text-chalk/30">
+                        <td
+                          colSpan={4}
+                          className="py-8 text-center text-chalk/30"
+                        >
                           No sessions yet.
                         </td>
                       </tr>
@@ -471,8 +514,8 @@ export default function AdminPage() {
                                 session.status === "completed"
                                   ? "bg-score-green/10 text-score-green"
                                   : session.status === "in_progress"
-                                  ? "bg-score-amber/10 text-score-amber"
-                                  : "bg-chalk/10 text-chalk/50"
+                                    ? "bg-score-amber/10 text-score-amber"
+                                    : "bg-chalk/10 text-chalk/50"
                               }`}
                             >
                               {session.status}
@@ -489,27 +532,34 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* ── Lead List ───────────────────────────────────────────── */}
+            {/* ── Recent Scorecard Leads Table ───────────────────────── */}
             <div className="rounded-2xl border border-chalk/10 bg-chalk/[0.02] p-6">
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-chalk/40">
+              <h2 className="mb-4 font-display text-sm font-semibold uppercase tracking-wider text-chalk/40">
                 Recent Scorecard Leads
               </h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-chalk/10">
-                      <th className="pb-3 pr-4 font-medium text-chalk/50">Email</th>
+                      <th className="pb-3 pr-4 font-medium text-chalk/50">
+                        Email
+                      </th>
                       <th className="pb-3 pr-4 font-medium text-chalk/50">
                         Business
                       </th>
-                      <th className="pb-3 pr-4 font-medium text-chalk/50">Score</th>
+                      <th className="pb-3 pr-4 font-medium text-chalk/50">
+                        Score
+                      </th>
                       <th className="pb-3 font-medium text-chalk/50">Date</th>
                     </tr>
                   </thead>
                   <tbody>
                     {leads.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="py-8 text-center text-chalk/30">
+                        <td
+                          colSpan={4}
+                          className="py-8 text-center text-chalk/30"
+                        >
                           No scorecard leads yet.
                         </td>
                       </tr>
@@ -519,7 +569,9 @@ export default function AdminPage() {
                           key={lead.id}
                           className="border-b border-chalk/5 last:border-0"
                         >
-                          <td className="py-3 pr-4 text-chalk/80">{lead.email}</td>
+                          <td className="py-3 pr-4 text-chalk/80">
+                            {lead.email}
+                          </td>
                           <td className="py-3 pr-4 text-chalk/60">
                             {lead.business_name || "\u2014"}
                           </td>
@@ -549,16 +601,17 @@ export default function AdminPage() {
           </>
         )}
 
-        {/* ================================================================ */}
-        {/*  PIPELINE TAB                                                    */}
-        {/* ================================================================ */}
+        {/* ============================================================ */}
+        {/*  PIPELINE TAB — CRM Kanban                                    */}
+        {/* ============================================================ */}
         {activeTab === "pipeline" && (
           <div className="grid gap-6 lg:grid-cols-4">
-            {/* Lead column */}
+            {/* ── Lead Column ─────────────────────────────────────── */}
             <PipelineColumn
               title="Lead"
               count={leadCountsByStatus.new}
-              accentClass="bg-chalk/20"
+              borderColor="border-t-chalk/30"
+              badgeClass="bg-chalk/20"
             >
               {pipelineLeads("new").map((lead) => (
                 <PipelineCard
@@ -572,11 +625,12 @@ export default function AdminPage() {
               ))}
             </PipelineColumn>
 
-            {/* Sequenced column */}
+            {/* ── Sequenced Column ────────────────────────────────── */}
             <PipelineColumn
               title="Sequenced"
               count={leadCountsByStatus.sequenced}
-              accentClass="bg-score-amber/20"
+              borderColor="border-t-score-amber"
+              badgeClass="bg-score-amber/20"
             >
               {pipelineLeads("sequenced").map((lead) => (
                 <PipelineCard
@@ -590,11 +644,12 @@ export default function AdminPage() {
               ))}
             </PipelineColumn>
 
-            {/* Converted column */}
+            {/* ── Converted Column ────────────────────────────────── */}
             <PipelineColumn
               title="Converted"
               count={leadCountsByStatus.converted}
-              accentClass="bg-score-green/20"
+              borderColor="border-t-score-green"
+              badgeClass="bg-score-green/20"
             >
               {pipelineLeads("converted").map((lead) => (
                 <PipelineCard
@@ -608,26 +663,40 @@ export default function AdminPage() {
               ))}
             </PipelineColumn>
 
-            {/* Retainer column */}
+            {/* ── Retainer Column ─────────────────────────────────── */}
             <PipelineColumn
               title="Retainer"
               count={pipelineRetainers.length}
-              accentClass="bg-harper-gold/20"
+              borderColor="border-t-harper-gold"
+              badgeClass="bg-harper-gold/20"
             >
               {pipelineRetainers.map((sub) => (
                 <div
                   key={sub.id}
                   className="rounded-xl border border-chalk/10 bg-chalk/[0.03] p-4"
                 >
-                  <p className="truncate text-sm font-medium text-chalk">
-                    {sub.user_email}
-                  </p>
-                  {sub.business_name && (
-                    <p className="mt-0.5 truncate text-xs text-chalk/50">
-                      {sub.business_name}
-                    </p>
-                  )}
-                  <div className="mt-2 flex items-center justify-between">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-chalk">
+                        {sub.business_name || sub.user_email}
+                      </p>
+                      {sub.retainer_type && (
+                        <span className="mt-1 inline-block rounded-full bg-harper-gold/10 px-2 py-0.5 text-xs font-medium text-harper-gold">
+                          {sub.retainer_type}
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                        sub.status === "active"
+                          ? "bg-score-green/10 text-score-green"
+                          : "bg-chalk/10 text-chalk/50"
+                      }`}
+                    >
+                      {sub.status}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between">
                     <span className="text-xs font-semibold text-harper-gold">
                       {`\u00A3${(sub.amount_monthly / 100).toLocaleString("en-GB")}/mo`}
                     </span>
@@ -641,19 +710,12 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ================================================================ */}
-        {/*  ANALYTICS TAB                                                   */}
-        {/* ================================================================ */}
+        {/* ============================================================ */}
+        {/*  ANALYTICS TAB                                                */}
+        {/* ============================================================ */}
         {activeTab === "analytics" && (
           <>
-            {/* Revenue chart placeholder */}
-            <div className="mb-10 flex h-64 items-center justify-center rounded-2xl border border-chalk/10 bg-chalk/[0.02]">
-              <p className="text-sm text-chalk/30">
-                Revenue chart &mdash; integrate with charting library
-              </p>
-            </div>
-
-            {/* Metrics grid */}
+            {/* ── Metric Cards ──────────────────────────────────────── */}
             <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 {
@@ -672,8 +734,11 @@ export default function AdminPage() {
                   color: "text-harper-gold",
                 },
                 {
-                  label: "Total Revenue",
-                  value: `\u00A3${analytics.totalRevenue.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                  label: "Monthly Retainer Revenue",
+                  value: `\u00A3${analytics.monthlyRetainerRevenue.toLocaleString("en-GB", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`,
                   color: "text-score-green",
                 },
               ].map((metric) => (
@@ -684,17 +749,27 @@ export default function AdminPage() {
                   <p className="text-xs font-semibold uppercase tracking-wider text-chalk/40">
                     {metric.label}
                   </p>
-                  <p className={`mt-2 font-display text-3xl font-bold ${metric.color}`}>
+                  <p
+                    className={`mt-2 font-display text-3xl font-bold ${metric.color}`}
+                  >
                     {metric.value}
                   </p>
                 </div>
               ))}
             </div>
 
+            {/* ── Revenue Chart Placeholder ──────────────────────────── */}
+            <div className="mb-10 flex h-64 items-center justify-center rounded-2xl border border-chalk/10 bg-chalk/[0.02]">
+              <p className="text-sm text-chalk/30">
+                Revenue chart &mdash; integrate with charting library
+              </p>
+            </div>
+
+            {/* ── Two-Column: Interactions & Implementation Requests ── */}
             <div className="grid gap-10 lg:grid-cols-2">
               {/* Recent business interactions */}
               <div className="rounded-2xl border border-chalk/10 bg-chalk/[0.02] p-6">
-                <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-chalk/40">
+                <h2 className="mb-4 font-display text-sm font-semibold uppercase tracking-wider text-chalk/40">
                   Recent Business Interactions
                 </h2>
                 {businessInteractions.length === 0 ? (
@@ -741,13 +816,13 @@ export default function AdminPage() {
                 )}
               </div>
 
-              {/* Implementation requests */}
+              {/* Implementation requests (type='project') */}
               <div className="rounded-2xl border border-chalk/10 bg-chalk/[0.02] p-6">
-                <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-chalk/40">
+                <h2 className="mb-4 font-display text-sm font-semibold uppercase tracking-wider text-chalk/40">
                   Implementation Requests
                 </h2>
-                {businessInteractions.filter((i) => i.type === "project").length ===
-                0 ? (
+                {businessInteractions.filter((i) => i.type === "project")
+                  .length === 0 ? (
                   <p className="py-8 text-center text-sm text-chalk/30">
                     No implementation requests.
                   </p>
@@ -790,14 +865,14 @@ export default function AdminPage() {
           </>
         )}
 
-        {/* ================================================================ */}
-        {/*  OFFERS TAB                                                      */}
-        {/* ================================================================ */}
+        {/* ============================================================ */}
+        {/*  OFFERS TAB                                                   */}
+        {/* ============================================================ */}
         {activeTab === "offers" && (
           <div className="grid gap-10 lg:grid-cols-2">
-            {/* ── Active Offers ───────────────────────────────────────── */}
+            {/* ── Active Offers List ──────────────────────────────── */}
             <div className="rounded-2xl border border-chalk/10 bg-chalk/[0.02] p-6">
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-chalk/40">
+              <h2 className="mb-4 font-display text-sm font-semibold uppercase tracking-wider text-chalk/40">
                 Active Offers
               </h2>
               {offers.length === 0 ? (
@@ -855,9 +930,9 @@ export default function AdminPage() {
               )}
             </div>
 
-            {/* ── Create Flash Offer ──────────────────────────────────── */}
+            {/* ── Create Flash Offer Form ─────────────────────────── */}
             <div className="rounded-2xl border border-chalk/10 bg-chalk/[0.02] p-6">
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-chalk/40">
+              <h2 className="mb-4 font-display text-sm font-semibold uppercase tracking-wider text-chalk/40">
                 Quick Action: Create Flash Offer
               </h2>
               <form onSubmit={handleCreateFlashOffer} className="space-y-4">
@@ -875,9 +950,10 @@ export default function AdminPage() {
                     value={flashCode}
                     onChange={(e) => setFlashCode(e.target.value)}
                     placeholder="e.g. FLASH20"
-                    className="w-full rounded-xl border border-chalk/15 bg-chalk/[0.04] px-4 py-3 font-mono text-sm text-chalk uppercase placeholder:text-chalk/30 focus:border-harper-gold focus:outline-none focus:ring-1 focus:ring-harper-gold"
+                    className="w-full rounded-xl border border-chalk/15 bg-chalk/[0.04] px-4 py-3 font-mono text-sm uppercase text-chalk placeholder:text-chalk/30 focus:border-harper-gold focus:outline-none focus:ring-1 focus:ring-harper-gold"
                   />
                 </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label
@@ -903,7 +979,8 @@ export default function AdminPage() {
                       htmlFor="flash-duration"
                       className="mb-1.5 block text-sm font-medium text-chalk/80"
                     >
-                      Duration (hours) <span className="text-harper-gold">*</span>
+                      Duration (hours){" "}
+                      <span className="text-harper-gold">*</span>
                     </label>
                     <input
                       id="flash-duration"
@@ -917,6 +994,7 @@ export default function AdminPage() {
                     />
                   </div>
                 </div>
+
                 <div>
                   <label
                     htmlFor="flash-max"
@@ -935,16 +1013,21 @@ export default function AdminPage() {
                     className="w-full rounded-xl border border-chalk/15 bg-chalk/[0.04] px-4 py-3 text-sm text-chalk placeholder:text-chalk/30 focus:border-harper-gold focus:outline-none focus:ring-1 focus:ring-harper-gold"
                   />
                 </div>
+
                 <Button
                   type="submit"
                   disabled={
-                    flashSubmitting || !flashCode || !flashDiscount || !flashDuration
+                    flashSubmitting ||
+                    !flashCode ||
+                    !flashDiscount ||
+                    !flashDuration
                   }
                   size="md"
                   className="w-full"
                 >
                   {flashSubmitting ? "Creating..." : "Create Flash Offer"}
                 </Button>
+
                 {flashMessage && (
                   <p
                     className={`text-sm ${
@@ -965,34 +1048,40 @@ export default function AdminPage() {
   );
 }
 
-/* ================================================================== */
-/*  Pipeline sub-components                                            */
-/* ================================================================== */
+/* ==================================================================== */
+/*  Pipeline sub-components                                              */
+/* ==================================================================== */
 
 function PipelineColumn({
   title,
   count,
-  accentClass,
+  borderColor,
+  badgeClass,
   children,
 }: {
   title: string;
   count: number;
-  accentClass: string;
+  borderColor: string;
+  badgeClass: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-chalk/10 bg-chalk/[0.02] p-4">
+    <div
+      className={`rounded-2xl border border-chalk/10 border-t-2 ${borderColor} bg-chalk/[0.02] p-4`}
+    >
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-chalk/60">
+        <h3 className="font-display text-sm font-semibold uppercase tracking-wider text-chalk/60">
           {title}
         </h3>
         <span
-          className={`flex h-6 min-w-[1.5rem] items-center justify-center rounded-full px-2 text-xs font-bold text-midnight ${accentClass}`}
+          className={`flex h-6 min-w-[1.5rem] items-center justify-center rounded-full px-2 text-xs font-bold text-midnight ${badgeClass}`}
         >
           {count}
         </span>
       </div>
-      <div className="space-y-3">{children}</div>
+      <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+        {children}
+      </div>
     </div>
   );
 }
@@ -1016,7 +1105,9 @@ function PipelineCard({
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-chalk">{email}</p>
           {businessName && (
-            <p className="mt-0.5 truncate text-xs text-chalk/50">{businessName}</p>
+            <p className="mt-0.5 truncate text-xs text-chalk/50">
+              {businessName}
+            </p>
           )}
         </div>
         <ScoreRing score={score} size={36} strokeWidth={3} animated={false} />
